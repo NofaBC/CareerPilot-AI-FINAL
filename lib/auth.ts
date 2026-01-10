@@ -1,0 +1,1 @@
+export function useAuth() { return { user: null, loading: false }; } export async function signIn(email: string, password: string) { console.log("Sign in:", email); } export async function signUp(email: string, password: string, name: string) { console.log("Sign up:", email, name); }

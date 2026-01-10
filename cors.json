@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://career-pilot-ai-three.vercel.app"],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "maxAgeSeconds": 3600
+  }
+]
