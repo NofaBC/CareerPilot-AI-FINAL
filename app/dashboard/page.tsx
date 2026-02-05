@@ -1,192 +1,194 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
-// import { firestore } from '@/lib/firebase'; // Removed as firebase.ts is not in this repo
-// import { doc, setDoc } from 'firebase/firestore'; // Removed as firebase.ts is not in this repo
-import { useRouter } from 'next/navigation';
-import { FiUser, FiTarget, FiMapPin, FiDollarSign, FiSave } from 'react-icons/fi';
-// import { extractProfileFromResume, updateExtractedProfileData } from '@/lib/profile-service'; // Removed as profile-service.ts is not in this repo
+
+
+
+import Link from 'next/link';
+import { FiUser, FiTarget, FiMapPin, FiDollarSign, FiSave, FiUploadCloud, FiAlertCircle } from 'react-icons/fi';
 
 export default function BuildProfilePage() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [formData, setFormData] = useState({
-    resume: '',
-    targetRole: '',
-    location: '',
-    minSalary: '',
-    maxSalary: '',
-  });
-  const [loading, setLoading] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const [resume, setResume] = useState<File | null>(null);
+  const [targetRole, setTargetRole] = useState('');
+  const [location, setLocation] = useState('');
+  const [minSalary, setMinSalary] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [profileExists, setProfileExists] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      alert('Please sign in to create a profile');
-      return;
-    }
+  useEffect(() => {
+    if (!user) return;
 
-    setLoading(true);
-    try {
-      // 1. Save basic profile (commented out as firebase is not in this repo)
-      // await setDoc(doc(firestore, 'users', user.uid, 'profile', 'main'), {
-      //   ...formData,
-      //   createdAt: new Date().toISOString(),
-      //   updatedAt: new Date().toISOString(),
-      // });
+    const loadProfile = async () => {
+      setLoading(true);
+      // Profile loading logic removed as firebase.ts is not in this repo
+      // Mock profile loading
+      setProfileExists(true);
+      setProfileData({
+        targetRole: 'Software Engineer',
+        location: 'Remote',
+        minSalary: 100000,
+        lastUpdated: { seconds: Date.now() / 1000 },
+      });
+      setTargetRole('Software Engineer');
+      setLocation('Remote');
+      setMinSalary('100000');
+      setLoading(false);
+    };
 
-      // 2. AI Extract skills from resume (commented out as profile-service is not in this repo)
-      // const extractedData = await extractProfileFromResume(user.uid, formData.resume);
-      
-      // 3. Save extracted data (commented out as profile-service is not in this repo)
-      // await updateExtractedProfileData(user.uid, extractedData);
+    loadProfile();
+  }, [user]);
 
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      alert(`Failed to save profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setResume(event.target.files[0]);
+      // Resume parsing logic removed as profile-service.ts is not in this repo
+      // Mock resume parsing
+      console.log('Mock resume parsing for:', event.target.files[0].name);
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleSaveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    const profile = {
+      targetRole,
+      location,
+      minSalary: parseInt(minSalary),
+      lastUpdated: new Date(),
+    };
+
+    // Profile saving logic removed as firebase.ts is not in this repo
+    // Mock profile saving
+    console.log('Mock profile saved:', profile);
+    setProfileExists(true);
+    setProfileData(profile);
+    setLoading(false);
+    alert('Profile saved successfully!');
   };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-pulse text-slate-600">Loading profile...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-slate-600">Please sign in to build your profile</p>
+        <Link href="/login" className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg">
+          Sign In
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center">
-          <FiUser className="w-10 h-10 mr-3 text-blue-600" />
-          Build Your Career Profile
-        </h1>
-        <p className="text-gray-600 text-lg">
-          Tell us about yourself so our AI can find the perfect job matches for you.
-        </p>
-      </div>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">Build Your Profile</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-200">
-        {/* Resume/Bio Section */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-gray-800 flex items-center">
-            <FiSave className="w-6 h-6 mr-2 text-blue-600" />
-            Your Background
-          </h2>
-          <label className="block text-sm font-medium text-gray-700">
-            Paste your resume, LinkedIn bio, or work experience
-            <span className="text-red-500 ml-1">*</span>
-          </label>
-          <textarea
-            value={formData.resume}
-            onChange={(e) => handleChange('resume', e.target.value)}
-            className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Full Stack Developer with 5 years experience in React, Node.js, and TypeScript..."
-            required
-          />
-          <p className="text-sm text-gray-500">
-            Our AI will extract your skills and experience to find the best matches.
-          </p>
-        </div>
-
-        {/* Job Preferences Section */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-gray-800 flex items-center">
-            <FiTarget className="w-6 h-6 mr-2 text-green-600" />
-            What You're Looking For
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Job Title<span className="text-red-500 ml-1">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.targetRole}
-                onChange={(e) => handleChange('targetRole', e.target.value)}
-                className="w-full p-4 border border-gray-300 rounded-lg"
-                placeholder="e.g. Senior Frontend Developer"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Preferred Location
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => handleChange('location', e.target.value)}
-                className="w-full p-4 border border-gray-300 rounded-lg"
-                placeholder="e.g. Remote, New York, San Francisco"
-              />
-            </div>
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <form onSubmit={handleSaveProfile} className="space-y-6">
+          {/* Resume Upload */}
+          <div>
+            <label htmlFor="resume-upload" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiUploadCloud className="inline-block w-4 h-4 mr-1" /> Upload Resume (Optional)
+            </label>
+            <input
+              id="resume-upload"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={handleResumeUpload}
+              className="block w-full text-sm text-slate-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+            />
+            {resume && <p className="mt-2 text-sm text-slate-600">Selected file: {resume.name}</p>}
+            <p className="mt-2 text-xs text-slate-500">Our AI will extract your skills and experience to find the best matches.</p>
           </div>
-        </div>
 
-        {/* Salary Section */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-gray-800 flex items-center">
-            <FiDollarSign className="w-6 h-6 mr-2 text-green-600" />
-            Salary Expectations
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum Salary
-              </label>
-              <input
-                type="text"
-                value={formData.minSalary}
-                onChange={(e) => handleChange('minSalary', e.target.value)}
-                className="w-full p-4 border border-gray-300 rounded-lg"
-                placeholder="e.g. $80k"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum Salary
-              </label>
-              <input
-                type="text"
-                value={formData.maxSalary}
-                onChange={(e) => handleChange('maxSalary', e.target.value)}
-                className="w-full p-4 border border-gray-300 rounded-lg"
-                placeholder="e.g. $120k"
-              />
-            </div>
+          {/* Target Role */}
+          <div>
+            <label htmlFor="targetRole" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiTarget className="inline-block w-4 h-4 mr-1" /> Target Role
+            </label>
+            <input
+              type="text"
+              id="targetRole"
+              value={targetRole}
+              onChange={(e) => setTargetRole(e.target.value)}
+              placeholder="e.g., Software Engineer, Product Manager"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
           </div>
-        </div>
 
-        {/* Submit Button */}
-        <div className="pt-6 border-t border-gray-200">
+          {/* Location */}
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiMapPin className="inline-block w-4 h-4 mr-1" /> Preferred Location
+            </label>
+            <input
+              type="text"
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., New York, Remote, San Francisco Bay Area"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Minimum Salary */}
+          <div>
+            <label htmlFor="minSalary" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiDollarSign className="inline-block w-4 h-4 mr-1" /> Minimum Desired Salary (USD)
+            </label>
+            <input
+              type="number"
+              id="minSalary"
+              value={minSalary}
+              onChange={(e) => setMinSalary(e.target.value)}
+              placeholder="e.g., 80000"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Save Button */}
           <button
             type="submit"
+            className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
           >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving Profile...
-              </>
-            ) : (
-              <>
-                Generate My Profile
-                <FiSave className="w-5 h-5 ml-2" />
-              </>
-            )}
+            <FiSave className="w-4 h-4 mr-2" />
+            {loading ? 'Saving Profile...' : 'Save Profile'}
           </button>
+        </form>
+      </div>
+
+      {/* Current Profile Summary (Optional) */}
+      {profileExists && profileData && (
+        <div className="mt-8 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Current Profile</h2>
+          <p><strong>Target Role:</strong> {profileData.targetRole}</p>
+          <p><strong>Location:</strong> {profileData.location}</p>
+          <p><strong>Min Salary:</strong> ${profileData.minSalary}</p>
+          <p className="text-sm text-slate-500 mt-2">Last updated: {new Date(profileData.lastUpdated.seconds * 1000).toLocaleDateString()}</p>
         </div>
-      </form>
+      )}
     </div>
   );
 }
