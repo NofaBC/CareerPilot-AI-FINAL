@@ -1,69 +1,82 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
-// import { firestore } from '@/lib/firebase'; // Removed as firebase.ts is not in this repo
-// import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore'; // Removed as firebase.ts is not in this repo
-// import JobMatchList from '@/components/JobMatchList'; // Removed as JobMatchList is not part of MVP
+
+
+
+
 import Link from 'next/link';
-import { FiUser, FiBriefcase, FiClock, FiExternalLink, FiMapPin, FiAlertCircle, FiZap } from 'react-icons/fi';
+import { FiUser, FiTarget, FiMapPin, FiDollarSign, FiSave, FiUploadCloud, FiAlertCircle } from 'react-icons/fi';
 
-interface Application {
-  id: string;
-  jobTitle: string;
-  company: string;
-  location: string;
-  appliedAt: Date;
-  status: string;
-  fitScore?: number;
-  applyLink?: string;
-}
-
-export default function DashboardPage() {
+export default function BuildProfilePage() {
   const { user, loading: authLoading } = useAuth();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [hasProfile, setHasProfile] = useState(false);
+  const [resume, setResume] = useState<File | null>(null);
+  const [targetRole, setTargetRole] = useState('');
+  const [location, setLocation] = useState('');
+  const [minSalary, setMinSalary] = useState('');
   const [loading, setLoading] = useState(true);
+  const [profileExists, setProfileExists] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const loadDashboard = async () => {
+    const loadProfile = async () => {
       setLoading(true);
-      
-      // Check if profile exists (commented out as firebase is not in this repo)
-      // const profileRef = doc(firestore, 'users', user.uid, 'profile', 'main');
-      // const profileSnap = await getDoc(profileRef);
-      // setHasProfile(profileSnap.exists());
-
-      // Fetch user's applications (filter out old test data from Jan 4-6) (commented out as firebase is not in this repo)
-      // const q = query(
-      //   collection(firestore, 'applications'),
-      //   where('userId', '==', user.uid),
-      //   orderBy('appliedAt', 'desc')
-      // );
-      // const snapshot = await getDocs(q);
-      
-      // const apps = (snapshot.docs
-      //   .map(doc => ({
-      //     id: doc.id,
-      //     ...doc.data(),
-      //     appliedAt: doc.data().appliedAt?.toDate()
-      //   }))
-      //   .filter(app => app.appliedAt > new Date('2026-01-07')) // Hide old test data
-      // ) as Application[]; // ✅ FIXED: Type assertion wrapped in parentheses
-      
-      // setApplications(apps);
+      // Profile loading logic removed as firebase.ts is not in this repo
+      // Mock profile loading
+      setProfileExists(true);
+      setProfileData({
+        targetRole: 'Software Engineer',
+        location: 'Remote',
+        minSalary: 100000,
+        lastUpdated: { seconds: Date.now() / 1000 },
+      });
+      setTargetRole('Software Engineer');
+      setLocation('Remote');
+      setMinSalary('100000');
       setLoading(false);
     };
 
-    loadDashboard();
+    loadProfile();
   }, [user]);
+
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setResume(event.target.files[0]);
+      // Resume parsing logic removed as profile-service.ts is not in this repo
+      // Mock resume parsing
+      console.log('Mock resume parsing for:', event.target.files[0].name);
+      setLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    const profile = {
+      targetRole,
+      location,
+      minSalary: parseInt(minSalary),
+      lastUpdated: new Date(),
+    };
+
+    // Profile saving logic removed as firebase.ts is not in this repo
+    // Mock profile saving
+    console.log('Mock profile saved:', profile);
+    setProfileExists(true);
+    setProfileData(profile);
+    setLoading(false);
+    alert('Profile saved successfully!');
+  };
 
   if (authLoading || loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-pulse text-slate-600">Loading dashboard...</div>
+        <div className="animate-pulse text-slate-600">Loading profile...</div>
       </div>
     );
   }
@@ -71,7 +84,7 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <div className="text-center py-12">
-        <p className="text-slate-600">Please sign in to view dashboard</p>
+        <p className="text-slate-600">Please sign in to build your profile</p>
         <Link href="/login" className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg">
           Sign In
         </Link>
@@ -80,169 +93,102 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">CareerPilot Dashboard</h1>
-          <p className="text-slate-600 mt-1">Manage your job search and applications</p>
-        </div>
-        
-        <Link 
-          href="/build-profile" 
-          className={`px-4 py-2 rounded-lg font-medium flex items-center ${
-            hasProfile 
-              ? 'border border-slate-300 text-slate-700 hover:bg-slate-50' 
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-        >
-          <FiUser className="w-4 h-4 mr-2" />
-          {hasProfile ? 'Edit Profile' : 'Build Profile'}
-        </Link>
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">Build Your Profile</h1>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <form onSubmit={handleSaveProfile} className="space-y-6">
+          {/* Resume Upload */}
+          <div>
+            <label htmlFor="resume-upload" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiUploadCloud className="inline-block w-4 h-4 mr-1" /> Upload Resume (Optional)
+            </label>
+            <input
+              id="resume-upload"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={handleResumeUpload}
+              className="block w-full text-sm text-slate-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+            />
+            {resume && <p className="mt-2 text-sm text-slate-600">Selected file: {resume.name}</p>}
+            <p className="mt-2 text-xs text-slate-500">Our AI will extract your skills and experience to find the best matches.</p>
+          </div>
+
+          {/* Target Role */}
+          <div>
+            <label htmlFor="targetRole" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiTarget className="inline-block w-4 h-4 mr-1" /> Target Role
+            </label>
+            <input
+              type="text"
+              id="targetRole"
+              value={targetRole}
+              onChange={(e) => setTargetRole(e.target.value)}
+              placeholder="e.g., Software Engineer, Product Manager"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiMapPin className="inline-block w-4 h-4 mr-1" /> Preferred Location
+            </label>
+            <input
+              type="text"
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., New York, Remote, San Francisco Bay Area"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Minimum Salary */}
+          <div>
+            <label htmlFor="minSalary" className="block text-sm font-medium text-slate-700 mb-2">
+              <FiDollarSign className="inline-block w-4 h-4 mr-1" /> Minimum Desired Salary (USD)
+            </label>
+            <input
+              type="number"
+              id="minSalary"
+              value={minSalary}
+              onChange={(e) => setMinSalary(e.target.value)}
+              placeholder="e.g., 80000"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Save Button */}
+          <button
+            type="submit"
+            className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={loading}
+          >
+            <FiSave className="w-4 h-4 mr-2" />
+            {loading ? 'Saving Profile...' : 'Save Profile'}
+          </button>
+        </form>
       </div>
 
-      {/* Profile Warning - Only show if no profile */}
-      {!hasProfile && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <FiAlertCircle className="text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-medium text-amber-800">Profile Required</h3>
-              <p className="text-amber-700 text-sm mt-1">
-                Build your profile first to see personalized AI job matches. Without a profile, the AI cannot tailor results.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* AI Job Matches */}
-        <div className="lg:col-span-2">
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center mb-4">
-              <FiBriefcase className="w-5 h-5 mr-2 text-blue-600" />
-              <h2 className="text-xl font-semibold text-slate-900">AI Job Matches</h2>
-            </div>
-            {/* <JobMatchList /> */} // Removed as JobMatchList is not part of MVP
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Profile Status Card */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900">Profile Status</h3>
-            {hasProfile ? (
-              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                <p className="text-green-800 font-medium">✅ Profile Active</p>
-                <p className="text-green-700 text-sm mt-1">AI is personalizing your job search</p>
-              </div>
-            ) : (
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <p className="text-slate-600">No profile configured</p>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Stats - Only show if applications exist */}
-          {applications.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 text-slate-900">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">Applications</span>
-                  <span className="font-bold text-slate-900">{applications.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">Avg. Fit Score</span>
-                  <span className="font-bold text-slate-900">
-                    {applications.length > 0 
-                      ? `${Math.round(applications.reduce((acc, app) => acc + (app.fitScore || 0), 0) / applications.length)}%`
-                      : '--'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Application History Section - Only show if applications > 0 */}
-      {applications.length > 0 && (
-        <div className="mt-12">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <FiClock className="w-5 h-5 mr-2 text-slate-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Your Applications</h2>
-            </div>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              {applications.length}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {applications.map((app) => (
-              <div key={app.id} className="bg-white border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-slate-900 truncate">{app.jobTitle}</h3>
-                    <p className="text-blue-600 text-sm truncate">{app.company}</p>
-                  </div>
-                  {app.fitScore && (
-                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                      app.fitScore >= 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      <FiZap className="w-3 h-3 mr-1" />
-                      {app.fitScore}% match
-                    </span>
-                  )}
-                </div>
-                
-                <div className="flex items-center text-sm text-slate-500 mb-3">
-                  <FiMapPin className="w-3 h-3 mr-1" />
-                  <span className="truncate">{app.location}</span>
-                </div>
-
-                <div className="flex justify-between items-center mb-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    app.status === 'applied' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {app.status}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {app.appliedAt.toLocaleDateString()}
-                  </span>
-                </div>
-                
-                {/* Smart Apply Button - Always show if applyLink exists */}
-                {app.applyLink && (
-                  <button
-                    onClick={() => window.open(app.applyLink, '_blank', 'noopener,noreferrer')}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded text-sm flex items-center justify-center font-medium transition-colors"
-                  >
-                    <FiExternalLink className="w-3 h-3 mr-1" />
-                    View Job
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State for Applications - Only show if profile exists but no applications */}
-      {applications.length === 0 && hasProfile && (
-        <div className="mt-12 text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
-          <FiBriefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-slate-800">No Applications Yet</h3>
-          <p className="text-slate-600 text-sm mt-1">Click "Smart Apply" on job matches to start tracking your applications here</p>
+      {/* Current Profile Summary (Optional) */}
+      {profileExists && profileData && (
+        <div className="mt-8 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Current Profile</h2>
+          <p><strong>Target Role:</strong> {profileData.targetRole}</p>
+          <p><strong>Location:</strong> {profileData.location}</p>
+          <p><strong>Min Salary:</strong> ${profileData.minSalary}</p>
+          <p className="text-sm text-slate-500 mt-2">Last updated: {new Date(profileData.lastUpdated.seconds * 1000).toLocaleDateString()}</p>
         </div>
       )}
     </div>
   );
 }
-// Force redeploy Tue Feb  3 12:15:06 EST 2026
-// Build Sync: Tue Feb  3 16:16:39 EST 2026
