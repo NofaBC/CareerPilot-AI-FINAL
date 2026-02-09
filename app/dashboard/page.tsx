@@ -1,249 +1,313 @@
-// app/dashboard/page.tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth-hooks';
-import { firestore } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-import JobMatchList from '@/components/JobMatchList';
-import Link from 'next/link';
-import { FiUser, FiBriefcase, FiClock, FiExternalLink, FiMapPin, FiAlertCircle, FiZap } from 'react-icons/fi';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { auth, firestore } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import {
+  Briefcase, Target, Send, Mic2, ChevronRight, LayoutDashboard,
+  User, Search, FileText, Star, Settings, LogOut, BarChart3
+} from 'lucide-react';
+import { JobMatchList } from '@/components/JobMatchList';
+import { FiCalendar, FiMapPin, FiExternalLink } from 'react-icons/fi';
 
-interface Application {
-  id: string;
-  jobTitle: string;
-  company: string;
-  location: string;
-  appliedAt: Date;
-  status: string;
-  fitScore?: number;
-  applyLink?: string;
-}
-
-export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [hasProfile, setHasProfile] = useState(false);
-  const [loading, setLoading] = useState(true);
+export default function Dashboard() {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    profileComplete: 0,
+    jobsQueued: 0,
+    interviewsScheduled: 0,
+    matchedThisWeek: 0,
+    applicationsSent: 0,
+    responsesReceived: 0,
+    interviewsBooked: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        try {
+          // Fetch profile and applications to calculate stats
+          const profileQuery = query(collection(firestore, "users"), where("uid", "==", currentUser.uid));
+          const profileSnap = await getDocs(profileQuery);
+          let pData: any = {};
+          if (!profileSnap.empty) {
+            pData = profileSnap.docs[0].data();
+            setProfile(pData);
+          }
 
-    const loadDashboard = async () => {
-      setLoading(true);
-      
-      // Check if profile exists
-      const profileRef = doc(firestore, 'users', user.uid, 'profile', 'main');
-      const profileSnap = await getDoc(profileRef);
-      setHasProfile(profileSnap.exists());
+          const applicationsQuery = query(collection(firestore, "applications"), where("userId", "==", currentUser.uid));
+          const applicationsSnap = await getDocs(applicationsQuery);
+          const applications = applicationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setApplications(applications);
 
-      // Fetch user's applications (filter out old test data from Jan 4-6)
-      const q = query(
-        collection(firestore, 'applications'),
-        where('userId', '==', user.uid),
-        orderBy('appliedAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      
-      const apps = (snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          appliedAt: doc.data().appliedAt?.toDate()
-        }))
-        .filter(app => app.appliedAt > new Date('2026-01-07')) // Hide old test data
-      ) as Application[]; // ✅ FIXED: Type assertion wrapped in parentheses
-      
-      setApplications(apps);
-      setLoading(false);
-    };
+          // Calculate stats
+          const profileCompletion = pData?.targetRole && pData?.location && pData?.skills?.length > 0 ? 100 : 50;
+          const jobsQueuedCount = 12; // Placeholder
+          const interviewsScheduledCount = applications.filter(app => app.status === 'interview').length;
+          const matchedThisWeekCount = 7; // Placeholder
+          const applicationsSentCount = applications.length;
+          const responsesReceivedCount = applications.filter(app => app.status === 'viewed' || app.status === 'interview').length;
+          const interviewsBookedCount = applications.filter(app => app.status === 'interview').length;
 
-    loadDashboard();
-  }, [user]);
+          setStats({
+            profileComplete: profileCompletion,
+            jobsQueued: jobsQueuedCount,
+            interviewsScheduled: interviewsScheduledCount,
+            matchedThisWeek: matchedThisWeekCount,
+            applicationsSent: applicationsSentCount,
+            responsesReceived: responsesReceivedCount,
+            interviewsBooked: interviewsBookedCount
+          });
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-pulse text-slate-600">Loading dashboard...</div>
-      </div>
-    );
-  }
+        } catch (e) {
+          console.error("Error fetching dashboard data:", e);
+        }
+        finally { setIsLoading(false); }
+      } else { window.location.href = '/login'; }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  if (!user) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-slate-600">Please sign in to view dashboard</p>
-        <Link href="/login" className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg">
-          Sign In
-        </Link>
-      </div>
-    );
-  }
+  if (isLoading) return (
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center space-y-6"
+      >
+        <div className="relative w-24 h-24 mx-auto">
+          <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
+          <div className="absolute inset-0 border-4 border-t-blue-500 rounded-full animate-spin"></div>
+          <LayoutDashboard className="absolute inset-0 m-auto w-10 h-10 text-blue-500" />
+        </div>
+        <p className="text-slate-400 font-bold tracking-widest uppercase text-xs animate-pulse">Initializing AI Command Center...</p>
+      </motion.div>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">CareerPilot Dashboard</h1>
-          <p className="text-slate-600 mt-1">Manage your job search and applications</p>
+    <div className="min-h-screen bg-[#0f172a] text-slate-200 flex relative overflow-hidden">
+      {/* Background Glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+
+      <aside className="w-80 bg-slate-900/50 backdrop-blur-xl border-r border-white/5 p-8 flex flex-col fixed h-full z-[50]">
+        <div className="flex items-center gap-3 mb-12">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <LayoutDashboard className="text-white w-7 h-7" />
+          </div>
+          <span className="font-black text-2xl tracking-tighter text-white">CareerPilot<span className="text-blue-500">AI</span></span>
         </div>
-        
-        <Link 
-          href="/build-profile" 
-          className={`px-4 py-2 rounded-lg font-medium flex items-center ${
-            hasProfile 
-              ? 'border border-slate-300 text-slate-700 hover:bg-slate-50' 
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
+
+        <nav className="space-y-2 flex-1">
+          {[
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Command Center', path: '/dashboard', active: true },
+            { id: 'profile', icon: User, label: 'My Profile', path: '/profile/edit' },
+            { id: 'jobs', icon: Search, label: 'Job Search', path: '/dashboard' },
+            { id: 'applications', icon: FileText, label: 'My Applications', path: '/dashboard' },
+            { id: 'interview', icon: Mic2, label: 'Interview Coach', path: '/dashboard/interview' },
+            { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => item.path && (window.location.href = item.path)}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold transition-all duration-300 ${
+                item.active
+                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-inner'
+                : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+              }`}
+            >
+              <item.icon className="w-5 h-5" /> {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="pt-8 border-t border-white/5 space-y-2">
+          <button onClick={() => auth.signOut().then(() => window.location.href = '/')} className="w-full flex items-center gap-4 p-4 text-rose-500/70 hover:bg-rose-500/10 rounded-2xl font-bold transition-all"><LogOut className="w-5 h-5" /> Logout</button>
+        </div>
+      </aside>
+
+      <main className="flex-1 ml-80 p-12 relative z-10">
+        {/* Hero Panel */}
+        <motion.section
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="bg-gradient-to-br from-blue-600/20 to-indigo-700/20 backdrop-blur-md p-10 rounded-[40px] border border-white/10 shadow-2xl mb-16"
         >
-          <FiUser className="w-4 h-4 mr-2" />
-          {hasProfile ? 'Edit Profile' : 'Build Profile'}
-        </Link>
-      </div>
+          <h1 className="text-5xl font-black text-white tracking-tight mb-4">Your 60–90 Day Job Search Campaign</h1>
+          <p className="text-blue-200 text-lg mb-8">
+            Profile: {stats.profileComplete}% complete &middot; {stats.jobsQueued} jobs queued &middot; {stats.interviewsScheduled} interviews scheduled
+          </p>
+          <button className="bg-blue-500 text-white font-bold py-4 px-8 rounded-full text-lg flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/30">
+            Continue Campaign <ChevronRight className="w-5 h-5" />
+          </button>
+        </motion.section>
 
-      {/* Profile Warning - Only show if no profile */}
-      {!hasProfile && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start">
-            <FiAlertCircle className="text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-medium text-amber-800">Profile Required</h3>
-              <p className="text-amber-700 text-sm mt-1">
-                Build your profile first to see personalized AI job matches. Without a profile, the AI cannot tailor results.
-              </p>
+        {/* Main Tiles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+          {/* Tile 1: Build / Refine Profile */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="bg-slate-900/40 backdrop-blur-md p-8 rounded-[32px] border border-white/5 shadow-xl flex flex-col justify-between"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center"><User className="w-6 h-6 text-blue-400" /></div>
+              <h2 className="font-black text-2xl text-white">Build / Refine Profile</h2>
             </div>
-          </div>
+            <p className="text-slate-400 mb-6 flex-1">Tell CareerPilot who you are. We extract skills, experience, and target roles.</p>
+            <button onClick={() => window.location.href = '/profile/edit'} className="bg-blue-700/30 text-blue-300 font-bold py-3 px-6 rounded-full text-md hover:bg-blue-600/50 transition-all">
+              Update Profile
+            </button>
+          </motion.div>
+
+          {/* Tile 2: Find & Score Jobs */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="bg-slate-900/40 backdrop-blur-md p-8 rounded-[32px] border border-white/5 shadow-xl flex flex-col justify-between"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center"><Search className="w-6 h-6 text-indigo-400" /></div>
+              <h2 className="font-black text-2xl text-white">Find & Score Jobs</h2>
+            </div>
+            <p className="text-slate-400 mb-6 flex-1">Search for roles. See 0–100% Fit Scores with explanations.</p>
+            <button onClick={() => document.getElementById('job-matches')?.scrollIntoView({ behavior: 'smooth' })} className="bg-indigo-700/30 text-indigo-300 font-bold py-3 px-6 rounded-full text-md hover:bg-indigo-600/50 transition-all">
+              Search Jobs
+            </button>
+          </motion.div>
+
+          {/* Tile 3: Smart Apply */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="bg-slate-900/40 backdrop-blur-md p-8 rounded-[32px] border border-white/5 shadow-xl flex flex-col justify-between"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center"><Send className="w-6 h-6 text-green-400" /></div>
+              <h2 className="font-black text-2xl text-white">Smart Apply</h2>
+            </div>
+            <p className="text-slate-400 mb-6 flex-1">Generate tailored cover letters and track applications.</p>
+            <button onClick={() => document.getElementById('applications')?.scrollIntoView({ behavior: 'smooth' })} className="bg-green-700/30 text-green-300 font-bold py-3 px-6 rounded-full text-md hover:bg-green-600/50 transition-all">
+              Open Applications
+            </button>
+          </motion.div>
+
+          {/* Tile 4: Interview Coach */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="bg-slate-900/40 backdrop-blur-md p-8 rounded-[32px] border border-white/5 shadow-xl flex flex-col justify-between"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center"><Mic2 className="w-6 h-6 text-purple-400" /></div>
+              <h2 className="font-black text-2xl text-white">Interview Coach</h2>
+            </div>
+            <p className="text-slate-400 mb-6 flex-1">Practice with AI before the real interview.</p>
+            <button onClick={() => window.location.href = '/dashboard/interview'} className="bg-purple-700/30 text-purple-300 font-bold py-3 px-6 rounded-full text-md hover:bg-purple-600/50 transition-all">
+              Start Interview Practice
+            </button>
+          </motion.div>
         </div>
-      )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* AI Job Matches */}
-        <div className="lg:col-span-2">
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center mb-4">
-              <FiBriefcase className="w-5 h-5 mr-2 text-blue-600" />
-              <h2 className="text-xl font-semibold text-slate-900">AI Job Matches</h2>
+        {/* Job Matches Section */}
+        <section id="job-matches" className="mb-16">
+          <JobMatchList userId={user.uid} />
+        </section>
+
+        {/* Applications Section - only if there are applications */}
+        {applications.length > 0 && (
+          <section id="applications" className="mb-16">
+            <div className="flex items-center mb-6">
+              <FiCalendar className="w-6 h-6 mr-2 text-blue-400" />
+              <h2 className="text-2xl font-semibold text-white">Your Applications</h2>
             </div>
-            <JobMatchList />
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Profile Status Card */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900">Profile Status</h3>
-            {hasProfile ? (
-              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                <p className="text-green-800 font-medium">✅ Profile Active</p>
-                <p className="text-green-700 text-sm mt-1">AI is personalizing your job search</p>
-              </div>
-            ) : (
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <p className="text-slate-600">No profile configured</p>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Stats - Only show if applications exist */}
-          {applications.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 text-slate-900">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">Applications</span>
-                  <span className="font-bold text-slate-900">{applications.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">Avg. Fit Score</span>
-                  <span className="font-bold text-slate-900">
-                    {applications.length > 0 
-                      ? `${Math.round(applications.reduce((acc, app) => acc + (app.fitScore || 0), 0) / applications.length)}%`
-                      : '--'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Application History Section - Only show if applications > 0 */}
-      {applications.length > 0 && (
-        <div className="mt-12">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <FiClock className="w-5 h-5 mr-2 text-slate-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Your Applications</h2>
-            </div>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              {applications.length}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {applications.map((app) => (
-              <div key={app.id} className="bg-white border border-slate-200 rounded-lg p-5 hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-slate-900 truncate">{app.jobTitle}</h3>
-                    <p className="text-blue-600 text-sm truncate">{app.company}</p>
-                  </div>
-                  {app.fitScore && (
-                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                      app.fitScore >= 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {applications.map((app) => (
+                <div 
+                  key={app.id} 
+                  className="bg-slate-900/40 p-5 rounded-lg border border-slate-700/50 hover:border-blue-500/30 transition-all"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white line-clamp-1">
+                        {app.jobTitle}
+                      </h3>
+                      <p className="text-blue-400 font-medium">{app.company}</p>
+                      {app.location && (
+                        <p className="text-sm text-slate-400 mt-1 flex items-center">
+                          <FiMapPin className="w-3 h-3 mr-1" />
+                          {app.location}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                      app.status === 'offer' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                      app.status === 'interview' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                      app.status === 'rejected' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                      app.status === 'screening' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                      'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
                     }`}>
-                      <FiZap className="w-3 h-3 mr-1 inline" />
-                      {app.fitScore}% match
+                      {app.status}
                     </span>
-                  )}
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-500">
+                    <span>Applied: {new Date(app.appliedAt).toLocaleDateString()}</span>
+                    {app.applyLink && (
+                      <a 
+                        href={app.applyLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 flex items-center"
+                      >
+                        View Job <FiExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="flex items-center text-sm text-slate-500 mb-3">
-                  <FiMapPin className="w-3 h-3 mr-1" />
-                  <span className="truncate">{app.location}</span>
-                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-                <div className="flex justify-between items-center mb-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    app.status === 'applied' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {app.status}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {app.appliedAt.toLocaleDateString()}
-                  </span>
-                </div>
-                
-                {/* Smart Apply Button - Always show if applyLink exists */}
-                {app.applyLink && (
-                  <button
-                    onClick={() => window.open(app.applyLink, '_blank', 'noopener,noreferrer')}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded text-sm flex items-center justify-center font-medium transition-colors"
-                  >
-                    <FiExternalLink className="w-3 h-3 mr-1" />
-                    View Job
-                  </button>
-                )}
-              </div>
-            ))}
+        {/* Campaign Analytics */}
+        <motion.section
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="bg-slate-900/40 backdrop-blur-md p-8 rounded-[32px] border border-white/5 shadow-xl"
+        >
+          <h2 className="font-black text-2xl text-white tracking-tight mb-6 flex items-center gap-3"><BarChart3 className="w-6 h-6 text-blue-400" /> Campaign Analytics</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="px-4">
+              <div className="text-3xl font-black text-white mb-1">{stats.matchedThisWeek}</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Jobs matched this week</div>
+            </div>
+            <div className="px-4 border-l border-white/5">
+              <div className="text-3xl font-black text-white mb-1">{stats.applicationsSent}</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Applications sent</div>
+            </div>
+            <div className="px-4 border-l border-white/5">
+              <div className="text-3xl font-black text-white mb-1">{stats.responsesReceived}</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Responses received</div>
+            </div>
+            <div className="px-4 border-l border-white/5">
+              <div className="text-3xl font-black text-white mb-1">{stats.interviewsBooked}</div>
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Interviews booked</div>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Empty State for Applications - Only show if profile exists but no applications */}
-      {applications.length === 0 && hasProfile && (
-        <div className="mt-12 text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
-          <FiBriefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-slate-800">No Applications Yet</h3>
-          <p className="text-slate-600 text-sm mt-1">Click "Smart Apply" on job matches to start tracking your applications here</p>
-        </div>
-      )}
+        </motion.section>
+      </main>
     </div>
   );
 }
-// Force redeploy Tue Feb  3 12:15:06 EST 2026
-// Build Sync: Tue Feb  3 16:16:39 EST 2026
