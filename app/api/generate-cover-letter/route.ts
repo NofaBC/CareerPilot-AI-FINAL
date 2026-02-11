@@ -1,71 +1,51 @@
-import { NextResponse } from 'next/server';
-import { getOpenAIClient, isOpenAIConfigured } from '@/lib/openai-client';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
-  let jobTitle = '', company = '', jobDescription = ''; // ✅ Declare outside try
-  
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    jobTitle = body.jobTitle || '';
-    company = body.company || '';
-    jobDescription = body.jobDescription || '';
-    
-    if (!jobTitle || !company) {
-      return NextResponse.json({ 
-        error: 'Missing required fields',
-        coverLetter: generatePlaceholderCoverLetter(jobTitle, company)
-      });
+    const { userId, jobTitle, company, jobDescription, userProfile } = await request.json();
+
+    if (!userId || !jobTitle || !company || !jobDescription || !userProfile) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const client = getOpenAIClient();
-    
-    if (!client || !isOpenAIConfigured()) {
-      return NextResponse.json({ 
-        error: 'OpenRouter not configured',
-        coverLetter: generatePlaceholderCoverLetter(jobTitle, company)
-      });
-    }
+    const prompt = `Write a concise, enthusiastic cover letter for ${userProfile.name || 'the candidate'} applying to ${jobTitle} at ${company}.
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-5.2",
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional career coach specializing in writing compelling cover letters. Write a personalized cover letter that:
-          1. Opens with enthusiasm for the specific role
-          2. Highlights 2-3 relevant skills from the resume
-          3. Mentions the company name and why they're a good fit
-          4. Closes with a strong call to action`
-        },
-        {
-          role: "user",
-          content: `Job: ${jobTitle} at ${company}\nDescription: ${jobDescription}\nMy Resume: ${body.resumeText || ''}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 600,
+Candidate Profile:
+- Skills: ${userProfile.skills?.join(', ') || 'N/A'}
+- Experience: ${userProfile.experience || 'N/A'}
+- Target Role: ${userProfile.targetRole || 'N/A'}
+
+Job Description:
+${jobDescription}
+
+Write in a professional but personable tone. Keep it under 250 words. Start with "Dear Hiring Manager," and end with "Sincerely, ${userProfile.name || 'Candidate'}".`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://career-pilot-ai.vercel.app',
+        'X-Title': 'CareerPilot AI',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4-turbo-preview',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 500,
+      }),
     });
 
-    const coverLetter = completion.choices[0]?.message?.content || '';
+    if (!response.ok) {
+      throw new Error(`OpenRouter error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const coverLetter = data.choices?.[0]?.message?.content || 'Failed to generate cover letter.';
+
     return NextResponse.json({ coverLetter });
   } catch (error) {
-    console.error('Cover letter generation error:', error);
-    return NextResponse.json({ 
-      error: 'Generation failed',
-      coverLetter: generatePlaceholderCoverLetter(jobTitle, company) // ✅ Now in scope
-    });
+    console.error('/api/generate-cover-letter error:', error);
+    return NextResponse.json({ error: 'Failed to generate cover letter' }, { status: 500 });
   }
-}
-
-function generatePlaceholderCoverLetter(jobTitle: string, company: string): string {
-  return `Dear Hiring Manager,
-
-I am writing to express my strong interest in the ${jobTitle} position at ${company}. 
-
-With my proven track record and passion for excellence, I am confident I would be a valuable asset to your team.
-
-I look forward to the opportunity to discuss how my skills and experience align with your needs.
-
-Best regards,
-Applicant`;
 }
